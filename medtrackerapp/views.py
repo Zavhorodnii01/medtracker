@@ -89,8 +89,17 @@ class DoseLogViewSet(viewsets.ModelViewSet):
         Example:
             GET /logs/filter/?start=2025-11-01&end=2025-11-07
         """
-        start = parse_date(request.query_params.get("start"))
-        end = parse_date(request.query_params.get("end"))
+        start_str = request.query_params.get("start")
+        end_str = request.query_params.get("end")
+
+        if not start_str or not end_str:
+            return Response(
+                {"error": "Both 'start' and 'end' query parameters are required and must be valid dates."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        start = parse_date(start_str)
+        end = parse_date(end_str)
 
         if not start or not end:
             return Response(
