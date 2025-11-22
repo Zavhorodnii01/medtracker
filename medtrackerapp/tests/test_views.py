@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from django.utils import timezone
 from datetime import timedelta
+from unittest.mock import patch
 
 
 class MedicationViewTests(APITestCase):
@@ -120,6 +121,37 @@ class MedicationViewTests(APITestCase):
         response = self.client.delete(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch('medtrackerapp.services.DrugInfoService.get_drug_info')
+    def test_get_external_info_success(self, mock_get_drug_info):
+        """Test fetching external drug info with successful API response (mocked)."""
+        mock_response = {
+            "name": "Aspirin",
+            "manufacturer": "Bayer",
+            "warnings": ["Keep out of reach of children"],
+            "purpose": ["Pain reliever"]
+        }
+        mock_get_drug_info.return_value = mock_response
+
+        url = reverse("medication-get-external-info", args=[self.med.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["name"], "Aspirin")
+        self.assertEqual(response.data["manufacturer"], "Bayer")
+        mock_get_drug_info.assert_called_once_with("Aspirin")
+
+    @patch('medtrackerapp.services.DrugInfoService.get_drug_info')
+    def test_get_external_info_api_error(self, mock_get_drug_info):
+        """Test fetching external drug info when API returns error (mocked)."""
+        mock_get_drug_info.side_effect = ValueError("OpenFDA API error: 404")
+
+        url = reverse("medication-get-external-info", args=[self.med.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn("error", response.data)
+        mock_get_drug_info.assert_called_once_with("Aspirin")
 
 
 class DoseLogViewTests(APITestCase):
