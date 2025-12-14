@@ -34,7 +34,7 @@ class Medication(models.Model):
         if not logs.exists():
             return 0.0
         taken = logs.filter(was_taken=True).count()
-        return round((taken / logs.count()) * 1, 2)
+        return round((taken / logs.count()) * 100, 2)
 
     def expected_doses(self, days: int) -> int:
         """
