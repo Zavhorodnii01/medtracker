@@ -1,5 +1,5 @@
 from rest_framework.test import APITestCase
-from medtrackerapp.models import Medication, DoseLog
+from medtrackerapp.models import Medication, DoseLog, Note
 from django.urls import reverse
 from rest_framework import status
 from django.utils import timezone
@@ -369,3 +369,120 @@ class ExpectedDosesViewTests(APITestCase):
         response = self.client.get(url, {"days": 7})
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class NoteViewTests(APITestCase):
+    def setUp(self):
+        self.med = Medication.objects.create(name="Warfarin", dosage_mg=5, prescribed_per_day=1)
+        self.note = Note.objects.create(medication=self.med, text="Patient shows improvement")
+
+    def test_list_notes_valid_data(self):
+        """Test retrieving list of all notes (positive path)."""
+        url = reverse("note-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["text"], "Patient shows improvement")
+
+    def test_list_notes_empty(self):
+        """Test retrieving notes when database is empty (boundary condition)."""
+        Note.objects.all().delete()
+        url = reverse("note-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+    def test_create_note_valid_data(self):
+        """Test creating a new note with valid data (positive path)."""
+        url = reverse("note-list")
+        data = {
+            "medication": self.med.id,
+            "text": "Increase dosage next week"
+        }
+        response = self.client.post(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Note.objects.count(), 2)
+        self.assertEqual(response.data["text"], "Increase dosage next week")
+        self.assertIn("created_at", response.data)
+
+    def test_create_note_missing_medication(self):
+        """Test creating note without medication (negative path)."""
+        url = reverse("note-list")
+        data = {"text": "Missing medication reference"}
+        response = self.client.post(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("medication", response.data)
+
+    def test_create_note_missing_text(self):
+        """Test creating note without text (negative path)."""
+        url = reverse("note-list")
+        data = {"medication": self.med.id}
+        response = self.client.post(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("text", response.data)
+
+    def test_create_note_invalid_medication_id(self):
+        """Test creating note with non-existent medication ID (negative path)."""
+        url = reverse("note-list")
+        data = {
+            "medication": 99999,
+            "text": "Invalid medication reference"
+        }
+        response = self.client.post(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retrieve_note_valid_id(self):
+        """Test retrieving a specific note by valid ID (positive path)."""
+        url = reverse("note-detail", args=[self.note.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["text"], "Patient shows improvement")
+        self.assertEqual(response.data["medication"], self.med.id)
+
+    def test_retrieve_note_invalid_id(self):
+        """Test retrieving note with non-existent ID (negative path)."""
+        url = reverse("note-detail", args=[99999])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_note_valid_id(self):
+        """Test deleting note with valid ID (positive path)."""
+        url = reverse("note-detail", args=[self.note.id])
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Note.objects.count(), 0)
+
+    def test_delete_note_invalid_id(self):
+        """Test deleting note with non-existent ID (negative path)."""
+        url = reverse("note-detail", args=[99999])
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_note_not_allowed(self):
+        """Test that updating notes via PUT is not allowed (negative path)."""
+        url = reverse("note-detail", args=[self.note.id])
+        data = {
+            "medication": self.med.id,
+            "text": "Updated text"
+        }
+        response = self.client.put(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_partial_update_note_not_allowed(self):
+        """Test that updating notes via PATCH is not allowed (negative path)."""
+        url = reverse("note-detail", args=[self.note.id])
+        data = {"text": "Partially updated text"}
+        response = self.client.patch(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
