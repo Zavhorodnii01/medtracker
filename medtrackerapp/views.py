@@ -20,6 +20,7 @@ class MedicationViewSet(viewsets.ModelViewSet):
         - PUT/PATCH /medications/{id}/ — update a medication
         - DELETE /medications/{id}/ — delete a medication
         - GET /medications/{id}/info/ — fetch external drug info from OpenFDA
+        - GET /medications/{id}/expected-doses/?days=X — calculate expected doses over X days
     """
     queryset = Medication.objects.all()
     serializer_class = MedicationSerializer
@@ -53,19 +54,59 @@ class MedicationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="expected-doses")
     def expected_doses(self, request, pk=None):
+        """
+        Calculate the expected number of doses for a medication over a given period.
+
+        Calls the `Medication.expected_doses()` method to compute the total
+        number of doses expected based on the prescribed daily frequency.
+
+        Query Parameters:
+            - days (int): Number of days to calculate doses for (must be >= 0).
+
+        Args:
+            request (Request): The current HTTP request.
+            pk (int): Primary key of the medication record.
+
+        Returns:
+            Response:
+                - 200 OK: Returns medication_id, days, and expected_doses.
+                - 400 BAD REQUEST: If days parameter is missing, invalid, or negative.
+                - 404 NOT FOUND: If medication with given ID does not exist.
+
+        Example:
+            GET /medications/1/expected-doses/?days=7
+            Response: {"medication_id": 1, "days": 7, "expected_doses": 14}
+        """
         medication = self.get_object()
         days_str = request.query_params.get("days")
+
         if not days_str:
-            return Response({"error": "days parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "The 'days' query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             days = int(days_str)
         except ValueError:
-            return Response({"error": "days must be a valid integer"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "The 'days' parameter must be a valid integer."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             expected = medication.expected_doses(days)
-        except ValueError:
-            return Response({"error": "days must be a positive integer"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"medication_id": medication.id, "days": days, "expected_doses": expected})
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            "medication_id": medication.id,
+            "days": days,
+            "expected_doses": expected
+        })
 
 
 class DoseLogViewSet(viewsets.ModelViewSet):
