@@ -22,7 +22,7 @@ class Medication(models.Model):
 
     def adherence_rate(self):
         """
-        Calculate the overall adherence rate for this medication.
+        Calculate the overall adherence rate for this medication
 
         The adherence rate is the percentage of all recorded doses that
         were marked as taken. Rounded to two decimals.
