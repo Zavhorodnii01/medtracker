@@ -303,3 +303,69 @@ class DoseLogViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
+
+
+class ExpectedDosesViewTests(APITestCase):
+    def setUp(self):
+        self.med = Medication.objects.create(name="Lisinopril", dosage_mg=10, prescribed_per_day=1)
+
+    def test_expected_doses_valid_params(self):
+        """Test expected doses endpoint with valid days parameter (positive path)."""
+        url = reverse("medication-expected-doses", args=[self.med.id])
+        response = self.client.get(url, {"days": 7})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("medication_id", response.data)
+        self.assertIn("days", response.data)
+        self.assertIn("expected_doses", response.data)
+        self.assertEqual(response.data["medication_id"], self.med.id)
+        self.assertEqual(response.data["days"], 7)
+        self.assertEqual(response.data["expected_doses"], 7)
+
+    def test_expected_doses_multiple_per_day(self):
+        """Test expected doses with medication prescribed multiple times per day."""
+        med = Medication.objects.create(name="Aspirin", dosage_mg=100, prescribed_per_day=3)
+        url = reverse("medication-expected-doses", args=[med.id])
+        response = self.client.get(url, {"days": 5})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["expected_doses"], 15)
+
+    def test_expected_doses_missing_days_param(self):
+        """Test expected doses endpoint without days parameter (negative path)."""
+        url = reverse("medication-expected-doses", args=[self.med.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_expected_doses_invalid_days_type(self):
+        """Test expected doses with non-integer days parameter (negative path)."""
+        url = reverse("medication-expected-doses", args=[self.med.id])
+        response = self.client.get(url, {"days": "invalid"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_expected_doses_negative_days(self):
+        """Test expected doses with negative days parameter (negative path)."""
+        url = reverse("medication-expected-doses", args=[self.med.id])
+        response = self.client.get(url, {"days": -5})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_expected_doses_zero_days(self):
+        """Test expected doses with zero days parameter (boundary condition)."""
+        url = reverse("medication-expected-doses", args=[self.med.id])
+        response = self.client.get(url, {"days": 0})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["expected_doses"], 0)
+
+    def test_expected_doses_invalid_medication_id(self):
+        """Test expected doses with non-existent medication ID (negative path)."""
+        url = reverse("medication-expected-doses", args=[99999])
+        response = self.client.get(url, {"days": 7})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
