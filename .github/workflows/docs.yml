@@ -1,12 +1,9 @@
 name: OpenAPI docs check
 
 on:
-  push:
-    branches:
-      - dev
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   docs:

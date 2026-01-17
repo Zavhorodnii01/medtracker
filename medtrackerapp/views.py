@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.utils.dateparse import parse_date
 from .models import Medication, DoseLog, Note
 from .serializers import MedicationSerializer, DoseLogSerializer, NoteSerializer
+from rest_framework.filters import SearchFilter
 
 class MedicationViewSet(viewsets.ModelViewSet):
     """
@@ -177,3 +178,6 @@ class NoteViewSet(viewsets.ModelViewSet):
     queryset = Note.objects.all()
     serializer_class = NoteSerializer
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    filter_backends = (SearchFilter,)
+    search_fields = ['medication__name']
+
