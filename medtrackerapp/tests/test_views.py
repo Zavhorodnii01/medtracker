@@ -405,6 +405,7 @@ class NoteViewTests(APITestCase):
         self.assertEqual(Note.objects.count(), 2)
 
 
+
         self.assertEqual(response.data["text"], "Increase dosage next week")
         self.assertIn("created_at", response.data)
 
