@@ -404,6 +404,7 @@ class NoteViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Note.objects.count(), 2)
 
+
         self.assertEqual(response.data["text"], "Increase dosage next week")
         self.assertIn("created_at", response.data)
 
